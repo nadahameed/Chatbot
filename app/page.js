@@ -181,7 +181,20 @@ export default function Home() {
           </Button>
         </Stack>
       </Stack>
+      {/* Footer */}
+      <Box
+        component="footer"
+        width="100%"
+        p={2}
+        bgcolor="background.paper"
+        marginTop={1}
+      >
+        <Typography align="center" variant="body2" color="text.secondary">
+          Created by Nada Hameed
+        </Typography>
+      </Box>
     </Box>
+    
     </ThemeProvider>
   );
   
