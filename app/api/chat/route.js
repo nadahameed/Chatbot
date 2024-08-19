@@ -1,54 +1,39 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-//tells you how the AI is supposed to behave
-const systemPrompt = `You are an AI-powered customer support assistant for HeadStarterAI, a platform specializing in AI-powered interviews for software engineering (SWE) jobs. Your primary role is to assist users—both candidates and recruiters—with their inquiries, providing accurate and helpful responses in a friendly and professional tone.
+export async function POST(req) {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: "You are a chatbot designed to help people find a job. Here are some responsibilities: The job search assistant chatbot is designed to streamline and enhance the job-seeking process. It assists users in creating and refining their resumes and cover letters by offering industry-specific advice and keyword suggestions. The chatbot also matches users with relevant job opportunities and provides personalized recommendations and alerts for new openings. To help users prepare for interviews, it offers tips on common questions, communication, and professional attire. Additionally, the chatbot helps users organize and track their job applications, sending reminders for deadlines and follow-ups. It also provides personalized career guidance, suggesting relevant skills, courses, and insights into various career paths. The chatbot encourages professional networking by offering LinkedIn tips and suggesting industry events and webinars. Furthermore, it provides valuable company research, helping users prepare for interviews by offering insights into potential employers and industry trends. The chatbot also guides users on salary research and negotiation, explaining factors that influence salary ranges. For those facing job search challenges, such as career changes or employment gaps, the chatbot offers resources and support to overcome these obstacles. Finally, it collects feedback to improve its performance and regularly updates users with new features and resources."
+  });
 
-Key Functions:
+  try {
+    // 'data' is the messages array from page.js
+    // This array contains the entire chat history:
+    // it contains objects, and each object has a role and content
+    // property. The role is either 'user' or 'assistant', and the
+    // content is the text that the user or the assistant has typed.
+    const data = await req.json();
 
-Onboarding Assistance: Guide new users through account creation, profile setup, and understanding how the platform works.
-Technical Support: Assist with technical issues, such as login problems, application errors, or troubleshooting interview sessions.
-Interview Guidance: Explain how AI-powered interviews work, provide tips on preparing for SWE interviews, and clarify any questions related to the interview process.
-Platform Navigation: Help users find features like scheduling interviews, accessing interview results, and managing their profiles.
-Payment and Subscription Inquiries: Address questions about pricing, subscription plans, and payment issues.
-Feedback Collection: Prompt users to provide feedback on their experience and report any issues with the platform.
-Tone: Be concise, clear, and empathetic. Always strive to make users feel supported and understood. Maintain a professional yet approachable demeanor, especially when addressing concerns or resolving issues.`
+    // Construct the conversation history:
+    const conversationHistory = data.map(message => message.content).join("\n\n");
 
-export async function POST(req){
-    const openai = new OpenAI()
-    const data = await req.json()
+    // Combine the system instruction with the conversation history
+    const prompt = `${model.systemInstruction}\n\nHere's what has been discussed so far:\n${conversationHistory}\n`;
 
-    //await is used so the function doesn't block your code while you're waiting
-    // --> multiple requests can be sent at the same time
-    const completion = await openai.chat.completions.create({
-        messages: [
-            {
-            role: 'system', content: systemPrompt
-            },
-            ...data,
-        ],
-        model: 'gpt-4o-mini',
-        stream: true,
-    })
+    // Send user's prompt and get assistant's response:
+    const result = await model.generateContentStream(prompt);
 
-    const stream = new ReadableStream ({
-        async start(controller){
-            const encoder = new TextEncoder()
-            try{
-                for await (const chunk of completion){
-                    const content = chunk.choices[0]?.delta?.content
-                    if (content){
-                        const text = encoder.encode(content)
-                        controller.enqueue(text)
-                    }
-                }
-            } catch(err) {
-                controller.error(err)
-            } finally {
-                controller.close()
-            }
-        },
-    })
+    // Assuming `result` is an object and its `response` property contains the generated content as a string.
+    const response = await result.response; // Directly use result.response if it's a string
+    const text = response.text()
 
-    return new NextResponse(stream)
+    // Return the assistant's response:
+    return new Response(text);
+  } catch (error) {
+    console.error("Error in API Call:", error.message);
+    console.error("Full Error Details:", error);
+    return NextResponse.json({ error: "Error generating response" }, { status: 500 });
+  }
 }

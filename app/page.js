@@ -1,31 +1,30 @@
 'use client'
-import { Box, Button, Stack, TextField } from "@mui/material";
-import Image from "next/image";
-import {useEffect, useRef, useState} from 'react';
+import { Box, Button, createTheme, Stack, TextField, ThemeProvider, Typography } from "@mui/material";
+import { useEffect, useRef, useState } from 'react';
 
 export default function Home() {
-  const [messages, setMessages] = useState({
-    role: 'assistant',
-    content: `Hi! I'm the Headstarter support agent, how can I assist you today?`,
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: `Hello! I am an assistant designed to help your career search. What can I do to help?`,
+    }
+  ]);
 
-  })
-
-  const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const sendMessage = async () => {
     if (!message.trim() || isLoading) return;
-    setIsLoading(true)
+    setIsLoading(true);
 
-    if (!message.trim()) return;  // Don't send empty messages
-  
-    setMessage('')
     setMessages((messages) => [
       ...messages,
       { role: 'user', content: message },
       { role: 'assistant', content: '' },
-    ])
-  
+    ]);
+
+    setMessage('');
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -33,57 +32,78 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify([...messages, { role: 'user', content: message }]),
-      })
-  
+      });
+
       if (!response.ok) {
-        throw new Error('Network response was not ok')
+        throw new Error('Network response was not ok');
       }
-  
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-  
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
       while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const text = decoder.decode(value, { stream: true })
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
         setMessages((messages) => {
-          let lastMessage = messages[messages.length - 1]
-          let otherMessages = messages.slice(0, messages.length - 1)
+          let lastMessage = messages[messages.length - 1];
+          let otherMessages = messages.slice(0, messages.length - 1);
           return [
             ...otherMessages,
             { ...lastMessage, content: lastMessage.content + text },
-          ]
-        })
+          ];
+        });
       }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error:', error);
       setMessages((messages) => [
         ...messages,
         { role: 'assistant', content: "I'm sorry, but I encountered an error. Please try again later." },
-      ])
+      ]);
     }
-    setIsLoading(false)
-  }
+
+    setIsLoading(false);
+  };
 
   const handleKeyPress = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      sendMessage()
+      event.preventDefault();
+      sendMessage();
     }
-  }
+  };
 
-  //auto scrolling
-  const messagesEndRef = useRef(null)
+  // auto scrolling
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
+
+  //customization
+  const theme = createTheme({
+    typography: {
+      fontFamily: [
+        "Georgia", // the custom font (all others are backups)
+        '-apple-system',
+        'BlinkMacSystemFont',
+        '"Segoe UI"',
+        'Roboto',
+        '"Helvetica Neue"',
+        'Arial',
+        'sans-serif',
+        '"Apple Color Emoji"',
+        '"Segoe UI Emoji"',
+        '"Segoe UI Symbol"',
+      ].join(','),
+    },
+  });
 
   return (
+    <ThemeProvider theme={theme}>
     <Box
       width="100vw"
       height="100vh"
@@ -91,21 +111,28 @@ export default function Home() {
       flexDirection="column"
       justifyContent="center"
       alignItems="center"
+      bgcolor="background.default"
     >
       <Stack
         direction={'column'}
-        width="500px"
-        height="700px"
-        border="1px solid black"
-        p={2}
-        spacing={3}
+        width="400px"
+        height="600px"
+        borderRadius={4}
+        boxShadow={3}
+        p={3}
+        spacing={2}
+        bgcolor="background.paper"
       >
+        <Typography variant="h5" align="center" color="text.primary" gutterBottom>
+          Career Search Assistant
+        </Typography>
         <Stack
           direction={'column'}
           spacing={2}
           flexGrow={1}
           overflow="auto"
           maxHeight="100%"
+          p={1}
         >
           {messages.map((message, index) => (
             <Box
@@ -122,8 +149,10 @@ export default function Home() {
                     : 'secondary.main'
                 }
                 color="white"
-                borderRadius={16}
-                p={3}
+                borderRadius={8}
+                p={2}
+                maxWidth="75%"
+                typography="body1"
               >
                 {message.content}
               </Box>
@@ -133,18 +162,27 @@ export default function Home() {
         </Stack>
         <Stack direction={'row'} spacing={2}>
           <TextField
-            label="Message"
+            label="Type a message..."
             fullWidth
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={isLoading}
+            variant="outlined"
+            size="small"
           />
-          <Button variant="contained" onClick={sendMessage} disabled={isLoading}>
+          <Button
+            variant="contained"
+            onClick={sendMessage}
+            disabled={isLoading}
+            sx={{ minWidth: '100px' }}
+          >
             {isLoading ? 'Sending...' : 'Send'}
           </Button>
         </Stack>
       </Stack>
     </Box>
-  )
+    </ThemeProvider>
+  );
+  
 }
